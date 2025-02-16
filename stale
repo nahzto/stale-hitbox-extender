@@ -1,0 +1,177 @@
+getgenv().stile = {
+    script_key = {
+        script_key = "yes",
+    },
+    hitbox_expander = {
+        Enabled = true,
+        Keybind = Enum.KeyCode.E,
+        Size = 10,
+        Color = Color3.fromRGB(209, 206, 255),
+        Transparency = 0.7,
+    },
+}
+
+-- Intro Section (from the original script)
+local loaderGui = Instance.new("ScreenGui")
+loaderGui.IgnoreGuiInset = true
+loaderGui.ResetOnSpawn = false
+loaderGui.Parent = game.Players.LocalPlayer.PlayerGui
+
+local blur = Instance.new("BlurEffect")
+blur.Size = 0
+blur.Parent = game.Lighting
+
+local imageLabel = Instance.new("ImageLabel")
+imageLabel.Size = UDim2.new(0.5, 0, 0.5, 0)
+imageLabel.Position = UDim2.new(0.25, 0, 0.25, 0)
+imageLabel.BackgroundTransparency = 1
+imageLabel.Image = "rbxassetid://79376365670916"
+imageLabel.ImageTransparency = 1
+imageLabel.ScaleType = Enum.ScaleType.Fit
+imageLabel.Parent = loaderGui
+
+print("Attempting to load image with asset ID: rbxassetid://125007651922878")
+
+local fadeInInfo = TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+local fadeOutInfo = TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+
+local blurTween = game:GetService("TweenService"):Create(blur, fadeInInfo, { Size = 24 })
+blurTween:Play()
+
+local fadeInTween = game:GetService("TweenService"):Create(imageLabel, fadeInInfo, { ImageTransparency = 0 })
+fadeInTween:Play()
+
+task.wait(5)
+
+local blurRemoveTween = game:GetService("TweenService"):Create(blur, fadeOutInfo, { Size = 0 })
+local fadeOutTween = game:GetService("TweenService"):Create(imageLabel, fadeOutInfo, { ImageTransparency = 1 })
+
+fadeOutTween:Play()
+blurRemoveTween:Play()
+
+fadeOutTween.Completed:Connect(function()
+    loaderGui:Destroy()
+    blur:Destroy()
+end)
+
+-- Hitbox Expander Functionality
+local targetPlayer = nil
+local originalSizes = {}
+local billboardGui = nil -- Store the BillboardGui for easy destruction
+
+-- Function to find the player closest to the mouse
+local function getPlayerClosestToMouse()
+    local closestPlayer = nil
+    local closestDistance = math.huge
+    local mouse = game.Players.LocalPlayer:GetMouse()
+    local camera = workspace.CurrentCamera
+
+    for _, player in pairs(game:GetService('Players'):GetPlayers()) do
+        if player ~= game.Players.LocalPlayer and player.Character and player.Character:FindFirstChild('HumanoidRootPart') then
+            local rootPart = player.Character.HumanoidRootPart
+            local screenPoint, onScreen = camera:WorldToScreenPoint(rootPart.Position)
+            if onScreen then
+                local distance = (Vector2.new(mouse.X, mouse.Y) - Vector2.new(screenPoint.X, screenPoint.Y)).Magnitude
+                if distance < closestDistance then
+                    closestDistance = distance
+                    closestPlayer = player
+                end
+            end
+        end
+    end
+
+    return closestPlayer
+end
+
+-- Function to apply the hitbox expander to the target player
+local function applyHitboxExpander(player)
+    if player.Character and player.Character:FindFirstChild('HumanoidRootPart') then
+        local humanoidRootPart = player.Character.HumanoidRootPart
+        originalSizes[player] = humanoidRootPart.Size
+        humanoidRootPart.Size = Vector3.new(getgenv().stile.hitbox_expander.Size, getgenv().stile.hitbox_expander.Size, getgenv().stile.hitbox_expander.Size)
+        humanoidRootPart.Transparency = getgenv().stile.hitbox_expander.Transparency
+        humanoidRootPart.Color = getgenv().stile.hitbox_expander.Color
+        humanoidRootPart.Material = Enum.Material.ForceField
+        humanoidRootPart.CanCollide = false
+
+        -- Add a label to the torso with a black outline
+        local torso = player.Character:FindFirstChild("UpperTorso") or player.Character:FindFirstChild("Torso")
+        if torso then
+            -- Create BillboardGui
+            billboardGui = Instance.new("BillboardGui")
+            billboardGui.Size = UDim2.new(0, 200, 0, 50)
+            billboardGui.Adornee = torso
+            billboardGui.AlwaysOnTop = true
+            billboardGui.Parent = player.Character
+
+            -- Black outline (behind the main text)
+            local outlineLabel = Instance.new("TextLabel")
+            outlineLabel.Size = UDim2.new(1, 0, 1, 0)
+            outlineLabel.Position = UDim2.new(0, 0, 0, 0)
+            outlineLabel.BackgroundTransparency = 1
+            outlineLabel.Text = player.Name
+            outlineLabel.TextSize = 14
+            outlineLabel.TextColor3 = Color3.new(0, 0, 0) -- Black color for the outline
+            outlineLabel.TextStrokeTransparency = 0 -- Solid outline
+            outlineLabel.TextStrokeColor3 = Color3.new(0, 0, 0) -- Black outline
+            outlineLabel.Font = Enum.Font.SourceSansBold
+            outlineLabel.Parent = billboardGui
+
+            -- Main text label
+            local textLabel = Instance.new("TextLabel")
+            textLabel.Size = UDim2.new(1, 0, 1, 0)
+            textLabel.Position = UDim2.new(0, 0, 0, 0)
+            textLabel.BackgroundTransparency = 1
+            textLabel.Text = player.Name
+            textLabel.TextSize = 14
+            textLabel.TextColor3 = Color3.fromRGB(209, 206, 255) -- Main text color
+            textLabel.Font = Enum.Font.SourceSansBold
+            textLabel.Parent = billboardGui
+        end
+    end
+end
+
+-- Function to reset the hitbox for the target player
+local function resetHitbox(player)
+    if player.Character and player.Character:FindFirstChild('HumanoidRootPart') and originalSizes[player] then
+        local humanoidRootPart = player.Character.HumanoidRootPart
+        humanoidRootPart.Size = originalSizes[player]
+        humanoidRootPart.Transparency = 1
+        humanoidRootPart.Color = Color3.fromRGB(255, 255, 255)
+        humanoidRootPart.Material = Enum.Material.Plastic
+        humanoidRootPart.CanCollide = true
+
+        -- Remove the label (including the outline) from the torso
+        if billboardGui then
+            billboardGui:Destroy()
+            billboardGui = nil
+        end
+    end
+end
+
+-- Keybind to toggle hitbox expander
+local userInputService = game:GetService("UserInputService")
+local isExpanderActive = false
+
+userInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == getgenv().stile.hitbox_expander.Keybind then -- Change `F` to your desired keybind
+        if not isExpanderActive then
+            -- Toggle ON: Apply hitbox expander to the closest player
+            targetPlayer = getPlayerClosestToMouse()
+            if targetPlayer then
+                applyHitboxExpander(targetPlayer)
+                isExpanderActive = true
+                print("Hitbox expander applied to:", targetPlayer.Name)
+            end
+        else
+            -- Toggle OFF: Reset hitbox for the targeted player
+            if targetPlayer then
+                resetHitbox(targetPlayer)
+                isExpanderActive = false
+                print("Hitbox expander reset for:", targetPlayer.Name)
+                targetPlayer = nil
+            end
+        end
+    end
+end)
